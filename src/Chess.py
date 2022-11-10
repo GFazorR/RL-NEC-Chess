@@ -4,6 +4,7 @@ if __name__ == '__main__':
     pass
 
 
+# TODO Define action space
 class Chess:
     def __init__(self):
         pass

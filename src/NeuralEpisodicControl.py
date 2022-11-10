@@ -9,10 +9,9 @@ if __name__ == '__main__':
 
 
 class NeuralEpisodicControl:
-    def __init__(self, env, action_space, q_network, replay_buffer, dnd, optimizer, n_steps=1, gamma=.99, eps_start=.3, eps_end=.05,
+    def __init__(self, env, q_network, replay_buffer, dnd, optimizer, n_steps=1, gamma=.99, eps_start=.3, eps_end=.05,
                  eps_decay=200, alpha=1e-3, batch_size=64, loss_fnc=smooth_l1_loss):
         self.env = env
-        self.env
         self.q_network = q_network
         self.replay_buffer = replay_buffer
         self.dnd = dnd
@@ -50,13 +49,19 @@ class NeuralEpisodicControl:
             # Random choice
             return self.long_tensor([[random.randrange(len(self.action_space))]])
 
+    # TODO
     def train(self, episodes):
-        # TODO
+        pass
+
+    # TODO
+    def play_episode(self):
         pass
 
     def get_transitions(self):
         # sample randomly from replay buffer
         transitions = self.replay_buffer.sample(self.batch_size)
         return [Variable(torch.cat(transition)) for transition in zip(*transitions)]
+
+
 
 
