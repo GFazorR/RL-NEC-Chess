@@ -4,9 +4,6 @@ import torch
 import random
 import math
 
-if __name__ == '__main__':
-    pass
-
 
 class NeuralEpisodicControl:
     def __init__(self, env, q_network, replay_buffer, dnd, optimizer, n_steps=1, gamma=.99, eps_start=.3, eps_end=.05,
@@ -49,19 +46,63 @@ class NeuralEpisodicControl:
             # Random choice
             return self.long_tensor([[random.randrange(len(self.action_space))]])
 
-    # TODO
     def train(self, episodes):
-        pass
+        rewards = []
+        for i in range(episodes):
+            state = self.env.reset()
+            rewards.append(self.play_episode(state))
+        return rewards
 
-    # TODO
-    def play_episode(self):
-        pass
+    def play_episode(self, state):
+        steps = 0
+        cumulative_reward = 0
+        while True:
+            g_n = 0
+            for n in range(self.n_steps):
+                action = self.select_action(state)
+                if n == 0:
+                    first_action = action
+                    first_state = state
+                next_state, reward, done = self.env.step(action)
+                cumulative_reward += reward
+                steps += 1
+                g_n += reward
+                state = next_state
+                if done:
+                    break
+
+            self.replay_buffer.enqueue(
+                first_state,
+                first_action,
+                next_state,
+                g_n
+            )
+            self.learn(n)
+            if done:
+                break
+        return cumulative_reward
 
     def get_transitions(self):
         # sample randomly from replay buffer
         transitions = self.replay_buffer.sample(self.batch_size)
         return [Variable(torch.cat(transition)) for transition in zip(*transitions)]
 
+    def learn(self, n):
+        if len(self.replay_buffer) < self.batch_size:
+            return
+
+        batch_state, batch_action, batch_next_state, batch_reward = self.get_transitions()
+
+        current_q_values = self.q_network(batch_state).gather(1, batch_action)
+        max_next_q_values = self.q_network(batch_next_state).detatch().max(1)[0]
+        expected_q_values = batch_reward + ((self.gamma ** n) * max_next_q_values)
+
+        loss = self.loss_fnc(current_q_values, expected_q_values.view(-1, 1))
+
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
 
 
-
+if __name__ == '__main__':
+    pass
