@@ -70,6 +70,7 @@ class NeuralEpisodicControl:
                 state = next_state
                 if done:
                     break
+            tabular_q_value = g_n + self.alpha**n * self.attend(state)
 
             self.replay_buffer.enqueue(
                 first_state,
@@ -103,6 +104,12 @@ class NeuralEpisodicControl:
         loss.backward()
         self.optimizer.step()
 
+    def attend(self, state):
+        # generate key
+        h = self.generate_key(state)
+        # compute attention
+        # w_i = similarity_score
+        return # sum([w_i*V(i])
 
 if __name__ == '__main__':
     pass
