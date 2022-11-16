@@ -1,5 +1,5 @@
 import chess
-import numpy as np
+import torch
 
 PIECE_MAP = {
     'k': 0,
@@ -19,19 +19,19 @@ class Chess:
     def encode_board(self):
         pieces = self.board.epd().split(' ', 1)[0]
         rows = pieces.split('/')
-        np_board = np.zeros((64,6))
+        torch_board = torch.zeros((6, 8, 8))
         for i, row in enumerate(rows):
-            j = i*8
+            j = 0
             for item in row:
                 if item.isdigit():
                     j += int(item)
                 else:
                     if item.isupper():
-                        np_board[j][self.pieces_map[item.lower()]] = 1
+                        torch_board[self.pieces_map[item.lower()]][i][j] = 1
                     else:
-                        np_board[j][self.pieces_map[item]] = -1
+                        torch_board[self.pieces_map[item]][i][j] = -1
                     j += 1
-        return np_board.reshape((64*6))
+        return torch_board
 
     def step(self, move):
         if self.board.parse_san(move) not in self.board.legal_moves:
@@ -61,6 +61,7 @@ class Chess:
 
 
 if __name__ == '__main__':
-    pass
-
-
+    env = Chess()
+    env.step('e4')
+    board = env.encode_board()
+    print(board)
