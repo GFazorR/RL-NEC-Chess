@@ -36,6 +36,8 @@ class NeuralEpisodicControl:
         if use_cuda:
             self.q_network.cuda()
 
+        self.kernel = torch.nn.CosineSimilarity()
+
     def select_action(self, state):
         eps = self.eps_end + (self.eps_start - self.eps_end) * math.exp(-1. * self.steps_done / self.eps_decay)
         self.steps_done += 1
@@ -70,7 +72,7 @@ class NeuralEpisodicControl:
                 state = next_state
                 if done:
                     break
-            tabular_q_value = g_n + self.alpha**n * self.attend(state)
+            tabular_q_value = g_n + (self.alpha ** n) * self.attend(state)
 
             self.replay_buffer.enqueue(
                 first_state,
@@ -104,12 +106,16 @@ class NeuralEpisodicControl:
         loss.backward()
         self.optimizer.step()
 
-    def attend(self, state):
+    # TODO rework method to work with tensors
+    def attend(self, state, action):
         # generate key
-        h = self.generate_key(state)
+        h = self.q_network(state)
+        dnd_a = self.dnd.lookup(action)
         # compute attention
-        # w_i = similarity_score
-        return # sum([w_i*V(i])
+        kernel_sum = sum(self.kernel(h, h_i) for h_i, _ in dnd_a)
+        w = [self.kernel(h, h_i) / kernel_sum for h_i, _ in dnd_a]
+        return sum(w * [q for _, q in dnd_a])
+
 
 if __name__ == '__main__':
     pass

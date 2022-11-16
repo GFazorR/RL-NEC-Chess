@@ -1,5 +1,6 @@
 import chess
 import torch
+from QNetwork import QNetwork
 
 PIECE_MAP = {
     'k': 0,
@@ -61,7 +62,9 @@ class Chess:
 
 
 if __name__ == '__main__':
-    env = Chess()
-    env.step('e4')
-    board = env.encode_board()
-    print(board)
+    pass
+    # env = Chess()
+    # env.step('e4')
+    # board = env.encode_board()
+    # model = QNetwork()
+    # print(model(board).reshape(128))
