@@ -7,7 +7,7 @@ class DifferentiableNeuralDictionary:
         self.embeddings = np.zeros((size, key_size))
         self.q_values = np.zeros(size)
         self.lru = np.zeros(size)
-        self.tm = .0
+        self.tm = .1
         self.k = k
         self.tree = None
         self.current_size = 0
@@ -16,6 +16,7 @@ class DifferentiableNeuralDictionary:
     def lookup(self, key):
         key = key.numpy()
         idx = self.tree.query(key, k=self.k, return_distance=False)
+        self.lru += self.tm
         return self.embeddings[idx], self.q_values[idx]
 
     def write(self, key, value):
@@ -31,12 +32,16 @@ class DifferentiableNeuralDictionary:
 
         self.rebuild_tree()
 
-    # TODO Perform the tabular update
-    def update(self, actions, ):
-        pass
+    def update(self, alpha, g_n):
+        self.q_values[self.current_size] = self.q_values[self.current_size] \
+                                           + alpha * (g_n - self.q_values[self.current_size])
 
     def rebuild_tree(self):
         self.tree = KDTree(self.embeddings[:self.current_size])
+
+    # TODO
+    def is_queryable(self):
+        pass
 
 
 if __name__ == '__main__':

@@ -1,8 +1,5 @@
 import random
 
-if __name__ == '__main__':
-    pass
-
 
 class ReplayBuffer:
     def __init__(self, max_length) -> None:
@@ -19,3 +16,7 @@ class ReplayBuffer:
 
     def __len__(self):
         return len(self.memory)
+
+
+if __name__ == '__main__':
+    pass

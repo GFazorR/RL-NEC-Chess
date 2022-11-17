@@ -42,7 +42,6 @@ class NeuralEpisodicControl:
         # Threshold for similarity
         self.tau = 0.5
 
-    # TODO modify method
     def select_action(self, state):
         eps = self.eps_end + (self.eps_start - self.eps_end) * math.exp(-1. * self.steps_done / self.eps_decay)
         self.steps_done += 1
@@ -58,54 +57,49 @@ class NeuralEpisodicControl:
     def train(self, episodes):
         rewards = []
         for i in range(episodes):
-            state = self.env.reset()
-            rewards.append(self.play_episode(state))
+            observation = self.env.reset()
+
+            # Random Move if opponent plays
+            opponent_starts = random.choice([True, False])
+            if opponent_starts:
+                action = random.choice([self.env.get_legal_moves()])
+                observation, _, _ = self.env.step(action)
+
+            rewards.append(self.play_episode(observation))
         return rewards
 
-    # TODO Self Play
-    def play_episode(self, state):
+    def play_episode(self, observation):
         steps = 0
         cumulative_reward = 0
+        state = self.q_network(observation)
+
         while True:
-            g_n = 0
-            for n in range(self.n_steps):
-                h = self.q_network(state)
-                action = self.select_action(h)
-                if n == 0:
-                    first_action = action
-                    first_state = h
-                next_state, reward, done = self.env.step(action)
-                cumulative_reward += reward
-                steps += 1
-                g_n += (self.gamma**n) * reward
-                state = next_state
-                if done:
-                    break
+            # Play n steps
+            first_state, first_action, state, g_n, n, done = \
+                self.play_n_steps(state, cumulative_reward, steps)
+
             # Get legal moves
             actions = [self.env.get_legal_moves()]
+
             # Calculate G_n (Bellman Target)
-            attention = self.attend(h, actions)
+            attention = self.attend(state, actions)
             tabular_q_value = g_n + (self.alpha ** n) * attention
-            # If action not in memory create new DND
-            
-            if self.memory.get(first_action):
-                self.memory[first_action] = DND(100, 128, 50)
 
             # If max similarity < threshold tau then write new value to DND
-            if torch.max(self.kernel(self.memory[first_action].lookup(h), h)) < self.tau:
-                self.memory[first_action].write(h, tabular_q_value)
+            if torch.max(self.kernel(self.memory[first_action].lookup(state), state)) < self.tau:
+                self.memory[first_action].write(state, tabular_q_value)
 
-            self.replay_buffer.enqueue(
-                first_state,
-                first_action,
-                h,
-                tabular_q_value
-            )
+            # first_state: embedding
+            # first_action: string
+            # state: embedding
+            # tabular_q_value: float
+            self.replay_buffer.enqueue(first_state, first_action, state, tabular_q_value)
 
             # Tabular update
             self.memory[first_action].update(self.alpha, g_n)
 
             self.learn()
+
             if done:
                 break
         return cumulative_reward
@@ -113,12 +107,49 @@ class NeuralEpisodicControl:
     def get_transitions(self):
         # sample randomly from replay buffer
         transitions = self.replay_buffer.sample(self.batch_size)
-        return [Variable(torch.cat(transition)) for transition in zip(*transitions)]
+        state, action, next_state, g_n = zip(*transitions)
+        batch_state = Variable(torch.cat(state))
+        next_state = Variable(torch.cat(action))
+        estimated_q_vals = Variable(torch.cat(g_n))
+        return batch_state, action, next_state, estimated_q_vals
+
+    # TODO add self play
+    def play_n_steps(self, state, cumulative_reward, steps):
+        g_n = 0
+        for n in range(self.n_steps):
+            # play agent turn
+            action = self.select_action(state)
+
+            # save first state/action
+            if n == 0:
+                first_action = action
+                first_state = state
+            # perform the action
+            next_state, reward, done = self.env.step(action)
+            state = self.q_network(next_state)
+
+            # play opponent turn
+            if not done:
+                opponent_action = self.select_action(state)
+                next_state, reward, done = self.env.step(opponent_action)
+
+            # compute stats
+            cumulative_reward += reward
+            steps += 1
+
+            # cumulative discounted reward
+            g_n += (self.gamma ** n) * reward
+            # update state
+            state = self.q_network(next_state)
+            if done:
+                break
+
+        return first_state, first_action, state,  g_n, n, done
 
     def learn(self):
+        # TODO add condition
         if len(self.replay_buffer) < self.batch_size:
             return
-
         batch_state, batch_action, batch_next_state, batch_reward = self.get_transitions()
         q_values = torch.zeros(self.batch_size)
         for i,action in enumerate(batch_action):
@@ -138,11 +169,19 @@ class NeuralEpisodicControl:
         q_values = torch.zeros(len(actions))
         for i, action in enumerate(actions):
             # generate key
-            hs, values = self.memory[action].lookup(h)
-            # compute attention
-            kernel_sum = self.kernel(hs, h)
-            w = kernel_sum / torch.sum(kernel_sum)
-            q_values[i] = torch.sum(w * values)
+
+            # If action not in memory create new DND
+            if self.memory.get(action) is None:
+                self.memory[action] = DND(100, 128, 50)
+
+            if self.memory[action].is_queryable():
+                hs, values = self.memory[action].lookup(h)
+                # compute attention
+                kernel_sum = self.kernel(hs, h)
+                w = kernel_sum / torch.sum(kernel_sum)
+                q_values[i] = torch.sum(w * values)
+            else:
+                q_values[i] = 0
 
         return q_values
 

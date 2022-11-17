@@ -1,6 +1,5 @@
 import chess
 import torch
-from QNetwork import QNetwork
 
 PIECE_MAP = {
     'k': 0,
@@ -47,10 +46,6 @@ class Chess:
     def get_legal_moves(self):
         return self.board.legal_moves
 
-    # TODO Define action space
-    def get_action_space(self):
-        pass
-
     def game_over(self):
         outcome = self.board.outcome(claim_draw=True)
         if outcome is None:
@@ -63,8 +58,4 @@ class Chess:
 
 if __name__ == '__main__':
     pass
-    # env = Chess()
-    # env.step('e4')
-    # board = env.encode_board()
-    # model = QNetwork()
-    # print(model(board).reshape(128))
+
