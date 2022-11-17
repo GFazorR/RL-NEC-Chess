@@ -31,6 +31,10 @@ class DifferentiableNeuralDictionary:
 
         self.rebuild_tree()
 
+    # TODO Perform the tabular update
+    def update(self, actions, ):
+        pass
+
     def rebuild_tree(self):
         self.tree = KDTree(self.embeddings[:self.current_size])
 
