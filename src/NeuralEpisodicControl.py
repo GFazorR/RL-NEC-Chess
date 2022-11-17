@@ -46,12 +46,14 @@ class NeuralEpisodicControl:
     def select_action(self, state):
         eps = self.eps_end + (self.eps_start - self.eps_end) * math.exp(-1. * self.steps_done / self.eps_decay)
         self.steps_done += 1
+        actions = self.env.get_legal_moves()
         if random.random() > eps:
             # Greedy choice
-            return self.q_network(Variable(self.float_tensor(state))).data.max(1)[1].view(1, 1)
+            idx = torch.argmax(self.attend(state, actions))
+            return random.choice(actions[idx])
         else:
             # Random choice
-            return self.long_tensor([[random.randrange(len(self.action_space))]])
+            return random.choice(actions)
 
     def train(self, episodes):
         rewards = []
@@ -67,24 +69,25 @@ class NeuralEpisodicControl:
         while True:
             g_n = 0
             for n in range(self.n_steps):
-                action = self.select_action(state)
+                h = self.q_network(state)
+                action = self.select_action(h)
                 if n == 0:
                     first_action = action
-                    first_state = state
+                    first_state = h
                 next_state, reward, done = self.env.step(action)
                 cumulative_reward += reward
                 steps += 1
-                g_n += reward
+                g_n += (self.gamma**n) * reward
                 state = next_state
                 if done:
                     break
             # Get legal moves
             actions = [self.env.get_legal_moves()]
             # Calculate G_n (Bellman Target)
-            attention = self.attend(state, actions)
+            attention = self.attend(h, actions)
             tabular_q_value = g_n + (self.alpha ** n) * attention
             # If action not in memory create new DND
-            h = self.q_network(state)
+            
             if self.memory.get(first_action):
                 self.memory[first_action] = DND(100, 128, 50)
 
@@ -95,14 +98,14 @@ class NeuralEpisodicControl:
             self.replay_buffer.enqueue(
                 first_state,
                 first_action,
-                next_state,
+                h,
                 tabular_q_value
             )
 
             # Tabular update
-            self.memory[first_action].update(attention, self.gamma)
+            self.memory[first_action].update(self.alpha, g_n)
 
-            self.learn(n)
+            self.learn()
             if done:
                 break
         return cumulative_reward
@@ -112,24 +115,26 @@ class NeuralEpisodicControl:
         transitions = self.replay_buffer.sample(self.batch_size)
         return [Variable(torch.cat(transition)) for transition in zip(*transitions)]
 
-    def learn(self, n):
+    def learn(self):
         if len(self.replay_buffer) < self.batch_size:
             return
 
         batch_state, batch_action, batch_next_state, batch_reward = self.get_transitions()
+        q_values = torch.zeros(self.batch_size)
+        for i,action in enumerate(batch_action):
+            hs, values = self.memory[action].lookup(batch_next_state[i])
+            # compute attention
+            kernel_sum = self.kernel(hs, batch_state[i])
+            w = kernel_sum / torch.sum(kernel_sum)
+            q_values[i] = torch.sum(w * values)
 
-        current_q_values = self.q_network(batch_state).gather(1, batch_action)
-        max_next_q_values = self.q_network(batch_next_state).detatch().max(1)[0]
-        expected_q_values = batch_reward + ((self.gamma ** n) * max_next_q_values)
-
-        loss = self.loss_fnc(current_q_values, expected_q_values.view(-1, 1))
+        loss = self.loss_fnc(batch_reward, q_values)
 
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 
-    def attend(self, state, actions):
-        h = self.q_network(state)
+    def attend(self, h, actions):
         q_values = torch.zeros(len(actions))
         for i, action in enumerate(actions):
             # generate key
