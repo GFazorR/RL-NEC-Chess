@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from sklearn.neighbors import KDTree
 
 
@@ -14,13 +15,14 @@ class DifferentiableNeuralDictionary:
         self.max_size = size
 
     def lookup(self, key):
-        key = key.numpy()
+        key = key.clone().detach().numpy()
         idx = self.tree.query(key, k=self.k, return_distance=False)
         self.lru += self.tm
-        return self.embeddings[idx], self.q_values[idx]
+        return torch.Tensor(self.embeddings[idx]), torch.Tensor(self.q_values[idx])
 
     def write(self, key, value):
-        key = key.numpy()
+        key = key.clone().detach().numpy()
+        value = value.clone().detach().numpy()
         if self.current_size < self.max_size:
             self.embeddings[self.current_size] = key
             self.q_values[self.current_size] = value
@@ -39,9 +41,8 @@ class DifferentiableNeuralDictionary:
     def rebuild_tree(self):
         self.tree = KDTree(self.embeddings[:self.current_size])
 
-    # TODO
     def is_queryable(self):
-        pass
+        return self.current_size >= self.k
 
 
 if __name__ == '__main__':

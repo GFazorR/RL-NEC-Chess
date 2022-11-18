@@ -34,23 +34,22 @@ class Chess:
         return torch_board
 
     def step(self, move):
-        if self.board.parse_san(move) not in self.board.legal_moves:
-            raise Exception("Illegal Move")
         self.board.push_san(move)
         reward, done = self.game_over()
         return self.encode_board(), reward, done
 
     def reset(self):
         self.board = chess.Board()
+        return self.encode_board()
 
     def get_legal_moves(self):
-        return self.board.legal_moves
+        return [self.board.san(move) for move in self.board.legal_moves]
 
     def game_over(self):
         outcome = self.board.outcome(claim_draw=True)
         if outcome is None:
             return 0, False
-        elif outcome.termination == 1:
+        elif outcome.termination == chess.Termination.CHECKMATE:
             return 1, True
         else:
             return .5, True
@@ -58,4 +57,3 @@ class Chess:
 
 if __name__ == '__main__':
     pass
-
