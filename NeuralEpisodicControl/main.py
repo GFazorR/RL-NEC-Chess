@@ -18,7 +18,7 @@ def test_models(env_name, env, n_steps, n_experiments=5,
 
     fig.suptitle(f'Learning curves for {env_name}')
     for i, n in enumerate(n_steps):
-        experiments_rewards = np.zeros(shape=(n_experiments, n_episodes))
+        experiments_rewards = np.zeros(shape=(n_experiments, int(n_episodes/5)))
         print(f'Start experiments with n_steps: {n}')
         for j in range(n_experiments):
             # Initialize Network
@@ -36,7 +36,7 @@ def test_models(env_name, env, n_steps, n_experiments=5,
             )
 
             rewards = agent.train(n_episodes)
-            experiments_rewards[j] = rewards
+            experiments_rewards[j] = rewards[::5]
             print(f'\tEnd of experiment {j} with parameter n_steps: {n}')
 
         mean_cumulative_costs = experiments_rewards.mean(axis=0)
@@ -44,15 +44,15 @@ def test_models(env_name, env, n_steps, n_experiments=5,
 
         mean_plus_error = np.add(mean_cumulative_costs, sem_error)
         mean_minus_error = np.subtract(mean_cumulative_costs, sem_error)
-        ax[i].plot(np.arange(0, n_episodes, 1),
+        ax[i].plot(np.arange(0, n_episodes, 5),
                    mean_cumulative_costs,
                    color=colors[i])
-        ax[i].fill_between(np.arange(0, n_episodes, 1),
+        ax[i].fill_between(np.arange(0, n_episodes, 5),
                            mean_minus_error,
                            mean_plus_error,
                            color=colors[i],
                            alpha=.2)
-        ax[i].title.set_text(f'{model_names[k]} with steps: {n}')
+        ax[i].title.set_text(f'NEC with steps: {n}')
 
         ax[i].set_xlabel('Episodes')
         ax[i].set_ylabel('Average Cumulative Cost')
@@ -66,7 +66,7 @@ if __name__ == '__main__':
     test_models(
         env_name='Chess',
         env=Chess(),
-        n_steps=[1, 3, 5],
-        n_episodes=50,
+        n_steps=[3,5],
+        n_episodes=500,
         n_experiments=3
     )

@@ -5,6 +5,7 @@ from torch.autograd import Variable
 import torch
 import random
 import math
+from tqdm import tqdm
 
 
 class NeuralEpisodicControl:
@@ -38,7 +39,7 @@ class NeuralEpisodicControl:
         if use_cuda:
             self.q_network.cuda()
 
-        self.kernel = torch.nn.CosineSimilarity(dim=0)
+        self.kernel = torch.nn.CosineSimilarity(dim=1)
         # Threshold for similarity
         self.tau = 0.5
 
@@ -58,12 +59,11 @@ class NeuralEpisodicControl:
 
     def train(self, episodes):
         rewards = []
-        for i in range(episodes):
+        for _ in tqdm(range(episodes), total=episodes):
             observation = self.env.reset()
 
             # Random Move if opponent plays
             opponent_starts = random.choice([True, False])
-            print(opponent_starts)
             if opponent_starts:
                 action = random.choice(self.env.get_legal_moves())
                 observation, _, _ = self.env.step(action)
@@ -78,22 +78,30 @@ class NeuralEpisodicControl:
 
         while True:
             # Play n steps
-            first_state, first_action, state, g_n, n, done = \
-                self.play_n_steps(state, cumulative_reward, steps)
+            first_state, first_action, state, g_n, n, done, c_r = \
+                self.play_n_steps(state, cumulative_reward)
+            steps += n
+            cumulative_reward += c_r
 
             # Get legal moves
             actions = self.env.get_legal_moves()
 
             # Calculate G_n (Bellman Target)
-            attention = torch.max(self.compute_attention(state, actions))
+            if len(actions) > 0:
+                attention = torch.max(self.compute_attention(state, actions))
+            else:
+                attention = torch.zeros(1)
             tabular_q_value = g_n + (self.alpha ** n) * attention
 
             # If max similarity < threshold tau then write new value to DND
-            # if torch.max(self.kernel(self.memory[first_action].lookup(state), state)) < self.tau:
             if not self.memory.get(first_action):
                 self.memory[first_action] = DifferentiableNeuralDictionary(100, 128, 10)
 
-            self.memory[first_action].write(state, tabular_q_value)
+            if self.memory[first_action].is_queryable():
+                if torch.max(self.kernel(self.memory[first_action].lookup(state)[0], state)) < self.tau:
+                    self.memory[first_action].write(state, tabular_q_value)
+            else:
+                self.memory[first_action].write(state, tabular_q_value)
 
             # first_state: embedding
             # first_action: string
@@ -120,7 +128,7 @@ class NeuralEpisodicControl:
         estimated_q_vals = Variable(torch.cat(g_n))
         return batch_state, action, next_state, estimated_q_vals
 
-    def play_n_steps(self, state, cumulative_reward, steps):
+    def play_n_steps(self, state, cumulative_reward):
         g_n = 0
         for n in range(self.n_steps):
             # play agent turn
@@ -138,10 +146,10 @@ class NeuralEpisodicControl:
                 state = self.q_network(next_state)
                 opponent_action = self.select_action(state)
                 next_state, reward, done = self.env.step(opponent_action)
+                reward = - reward
 
             # compute stats
             cumulative_reward += reward
-            steps += 1
 
             # cumulative discounted reward
             g_n += (self.gamma ** n) * reward
@@ -151,7 +159,7 @@ class NeuralEpisodicControl:
             if done:
                 break
 
-        return first_state, first_action, state, g_n, n, done
+        return first_state, first_action, state, g_n, n, done, cumulative_reward
 
     def learn(self):
         # TODO add condition
@@ -161,19 +169,18 @@ class NeuralEpisodicControl:
         q_values = torch.zeros(self.batch_size)
         for i, action in enumerate(batch_action):
             if self.memory[action].is_queryable():
-                hs, values = self.memory[action].lookup(batch_next_state[i].reshape(1, -1))
-                hs = hs.reshape((10, 128))
-                current_state = batch_state[i].reshape((1, 128))
-
+                hs, values = self.memory[action].lookup(batch_next_state[i])
                 # compute attention
-                kernel_sum = self.kernel(hs, current_state)
+                kernel_sum = self.kernel(hs, batch_state[i])
                 w = kernel_sum / torch.sum(kernel_sum)
 
                 q_values[i] = torch.sum(w * values)
             else:
                 q_values[i] = 0.0
 
-        loss = self.loss_fnc(Variable(batch_reward), Variable(q_values))
+        q_values.requires_grad = True
+
+        loss = self.loss_fnc(batch_reward, q_values)
 
         self.optimizer.zero_grad()
         loss.backward()
@@ -189,7 +196,7 @@ class NeuralEpisodicControl:
                 self.memory[action] = DifferentiableNeuralDictionary(100, 128, 10)
 
             if self.memory[action].is_queryable():
-                self.attend(state, action)
+                q_values[i] = self.attend(state, action)
 
             else:
                 q_values[i] = 0
@@ -201,7 +208,9 @@ class NeuralEpisodicControl:
         hs, values = self.memory[action].lookup(state)
         # compute attention
         kernel_sum = self.kernel(hs, state)
+
         w = kernel_sum / torch.sum(kernel_sum)
+
         return torch.sum(w * values)
 
 

@@ -14,7 +14,7 @@ class QNetwork(nn.Module):
     def forward(self, x):
         x = self.pool(relu(self.conv1(x)))
         x = self.flatten(relu(self.conv2(x)))
-        return x.reshape(128)
+        return x.reshape(1, 128)
 
 
 if __name__ == '__main__':

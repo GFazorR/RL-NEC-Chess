@@ -18,7 +18,7 @@ class DifferentiableNeuralDictionary:
         key = key.clone().detach().numpy()
         idx = self.tree.query(key, k=self.k, return_distance=False)
         self.lru += self.tm
-        return torch.Tensor(self.embeddings[idx]), torch.Tensor(self.q_values[idx])
+        return torch.from_numpy(self.embeddings[idx].reshape((10, 128))), torch.from_numpy(self.q_values[idx])
 
     def write(self, key, value):
         key = key.clone().detach().numpy()
@@ -35,8 +35,8 @@ class DifferentiableNeuralDictionary:
         self.rebuild_tree()
 
     def update(self, alpha, g_n):
-        self.q_values[self.current_size] = self.q_values[self.current_size] \
-                                           + alpha * (g_n - self.q_values[self.current_size])
+        self.q_values[:self.current_size] = self.q_values[:self.current_size] \
+                                           + alpha * (g_n - self.q_values[:self.current_size])
 
     def rebuild_tree(self):
         self.tree = KDTree(self.embeddings[:self.current_size])
