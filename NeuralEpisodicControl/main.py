@@ -66,7 +66,7 @@ if __name__ == '__main__':
     test_models(
         env_name='Chess',
         env=Chess(),
-        n_steps=[3,5],
-        n_episodes=500,
-        n_experiments=3
+        n_steps=[1,3,5],
+        n_episodes=100,
+        n_experiments=5
     )
