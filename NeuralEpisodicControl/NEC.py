@@ -143,10 +143,14 @@ class NeuralEpisodicControl:
 
             # play opponent turn
             if not done:
-                state = self.q_network(next_state)
-                opponent_action = self.select_action(state)
+                # state = self.q_network(next_state)
+                actions = self.env.get_legal_moves()
+                opponent_action = random.choice(actions)
                 next_state, reward, done = self.env.step(opponent_action)
-                reward = - reward
+                if reward == 1.:
+                    print(reward)
+                    reward = -reward
+                
 
             # compute stats
             cumulative_reward += reward
