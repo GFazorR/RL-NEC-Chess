@@ -9,8 +9,8 @@ from tqdm import tqdm
 
 
 class NeuralEpisodicControl:
-    def __init__(self, env, q_network, replay_buffer, optimizer, n_steps=1, gamma=.99, eps_start=.3, eps_end=.05,
-                 eps_decay=200, alpha=1e-3, batch_size=64, loss_fnc=smooth_l1_loss):
+    def __init__(self, env, q_network, replay_buffer, optimizer, n_steps=1, gamma=.99, eps_start=.3, eps_end=.01,
+                 eps_decay=1000, alpha=1e-3, batch_size=64, loss_fnc=smooth_l1_loss):
         self.env = env
         self.q_network = q_network
         self.replay_buffer = replay_buffer
@@ -66,12 +66,12 @@ class NeuralEpisodicControl:
             opponent_starts = random.choice([True, False])
             if opponent_starts:
                 action = random.choice(self.env.get_legal_moves())
-                observation, _, _ = self.env.step(action)
+                observation, _, _ = self.env.step(action, opponent_starts)
 
-            rewards.append(self.play_episode(observation))
+            rewards.append(self.play_episode(observation, opponent_starts))
         return rewards
 
-    def play_episode(self, observation):
+    def play_episode(self, observation, opponent_starts):
         steps = 0
         cumulative_reward = 0
         state = self.q_network(observation)
@@ -79,7 +79,7 @@ class NeuralEpisodicControl:
         while True:
             # Play n steps
             first_state, first_action, state, g_n, n, done, c_r = \
-                self.play_n_steps(state, cumulative_reward)
+                self.play_n_steps(state, cumulative_reward, opponent_starts)
             steps += n
             cumulative_reward += c_r
 
@@ -128,7 +128,7 @@ class NeuralEpisodicControl:
         estimated_q_vals = Variable(torch.cat(g_n))
         return batch_state, action, next_state, estimated_q_vals
 
-    def play_n_steps(self, state, cumulative_reward):
+    def play_n_steps(self, state, cumulative_reward, opponent_starts):
         g_n = 0
         for n in range(self.n_steps):
             # play agent turn
@@ -139,14 +139,14 @@ class NeuralEpisodicControl:
                 first_action = action
                 first_state = state
             # perform the action
-            next_state, reward, done = self.env.step(action)
+            next_state, reward, done = self.env.step(action, not opponent_starts)
 
             # play opponent turn
             if not done:
                 # state = self.q_network(next_state)
                 actions = self.env.get_legal_moves()
-                opponent_action = random.choice(actions)
-                next_state, reward, done = self.env.step(opponent_action)
+                opponent_action = self.select_action(state)
+                next_state, reward, done = self.env.step(opponent_action, opponent_starts)
                 if reward == 1.:
                     print(reward)
                     reward = -reward
