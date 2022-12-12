@@ -17,7 +17,7 @@ class Chess:
         self.board = chess.Board()
         self.pieces_map = PIECE_MAP
 
-    def encode_board(self):
+    def encode_board(self, play_as_white):
         pieces = self.board.epd().split(' ', 1)[0]
         rows = pieces.split('/')
         torch_board = torch.zeros((6, 8, 8))
@@ -32,16 +32,20 @@ class Chess:
                     else:
                         torch_board[self.pieces_map[item]][i][j] = -1
                     j += 1
+        if not play_as_white:
+            torch_board = -torch_board
+            torch_board = torch.flip(torch_board, (-1, 1))
+
         return torch_board
 
-    def step(self, move):
+    def step(self, move, play_as_white):
         self.board.push_san(move)
         reward, done = self.game_over()
-        return self.encode_board(), reward, done
+        return self.encode_board(play_as_white), reward, done
 
     def reset(self):
         self.board = chess.Board()
-        return self.encode_board()
+        return self.encode_board(True)
 
     def get_legal_moves(self):
         return [self.board.san(move) for move in self.board.legal_moves]
@@ -53,7 +57,7 @@ class Chess:
         elif outcome.termination == chess.Termination.CHECKMATE:
             return 1, True
         else:
-            return .5, True
+            return 0, True
 
 
 if __name__ == '__main__':
