@@ -1,5 +1,4 @@
 from torch.optim import Adam
-
 from NEC import NeuralEpisodicControl
 import numpy as np
 import matplotlib.pyplot as plt
@@ -66,7 +65,7 @@ if __name__ == '__main__':
     test_models(
         env_name='Chess',
         env=Chess(),
-        n_steps=[1,3,5],
-        n_episodes=100,
-        n_experiments=5
+        n_steps=[3,5],
+        n_episodes=5000,
+        n_experiments=2
     )
