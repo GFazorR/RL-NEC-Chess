@@ -66,6 +66,6 @@ if __name__ == '__main__':
         env_name='Chess',
         env=Chess(),
         n_steps=[3,5],
-        n_episodes=5000,
+        n_episodes=50,
         n_experiments=2
     )
