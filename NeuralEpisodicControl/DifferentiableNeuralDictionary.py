@@ -38,9 +38,16 @@ class DifferentiableNeuralDictionary:
 
             self.rebuild_tree()
 
-    def update(self, alpha, g_n):
+    def update(self, gamma, g_n, state, kernel):
+        w = self.calculate_weights(state, kernel)
         self.q_values[:self.current_size] = self.q_values[:self.current_size] \
-                                           + alpha * (g_n - self.q_values[:self.current_size])
+                                           + gamma * w * (g_n - self.q_values[:self.current_size])
+    def calculate_weights(self, state, kernel):
+        # compute weights
+        torch_embeddings = torch.from_numpy(self.embeddings[:self.current_size])
+        kernel_sum = kernel(torch_embeddings, state)
+        w = kernel_sum / torch.sum(kernel_sum)
+        return w.detach().numpy()
 
     def rebuild_tree(self):
         self.tree = KDTree(self.embeddings[:self.current_size])
