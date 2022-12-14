@@ -1,7 +1,6 @@
 import chess
 import torch
 
-
 PIECE_MAP = {
     'k': 0,
     'q': 1,
@@ -13,10 +12,10 @@ PIECE_MAP = {
 
 
 class Chess:
-    def __init__(self, max_moves=100):
+    def __init__(self, max_moves=50):
         self.board = chess.Board()
         self.pieces_map = PIECE_MAP
-        self.max_moves = max_moves 
+        self.max_moves = max_moves
         self.current_move = 0
 
     def encode_board(self, play_as_white):
@@ -58,16 +57,13 @@ class Chess:
         self.current_move += 1
         if outcome is None and self.current_move < self.max_moves:
             return 0, False
-        elif outcome is None and self.current_move>= self.max_moves:
+        elif outcome is None and self.current_move >= self.max_moves:
             return 0, True
         elif outcome.termination == chess.Termination.CHECKMATE:
             return 1, True
         else:
             return 0, True
-        
-        
 
 
 if __name__ == '__main__':
     pass
-
