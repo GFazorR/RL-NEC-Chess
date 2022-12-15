@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.neighbors import KDTree
-from sklearn.metrics.pairwise import rbf_kernel
+from sklearn.metrics.pairwise import rbf_kernel, cosine_similarity
 
 
 class DifferentiableNeuralDictionary:
@@ -14,7 +14,7 @@ class DifferentiableNeuralDictionary:
         self.tree = None
         self.current_size = 0
         self.max_size = size
-        self.kernel = rbf_kernel
+        self.kernel = cosine_similarity
 
     def lookup(self, key):
         if self.current_size < self.k:
@@ -64,7 +64,8 @@ class DifferentiableNeuralDictionary:
         return np.sum(w * values)
 
     def get_closest_distance(self, state):
-        d = np.max(self.kernel(self.embeddings, state))
+        d = np.max(self.kernel(self.embeddings[:self.current_size], state))
+        # print(d)
         return d
 
     def rebuild_tree(self):
@@ -75,4 +76,6 @@ class DifferentiableNeuralDictionary:
 
 
 if __name__ == '__main__':
+    # a = np.array([[1, 2, 3], [7, 5, 4], [7, 1, 9]])
+    # b = np.array([[1, 2, 3]])
     pass

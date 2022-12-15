@@ -18,36 +18,32 @@ class Chess:
         self.max_moves = max_moves
         self.current_move = 0
 
-    def encode_board(self, play_as_white):
+    def encode_board(self):
         pieces = self.board.epd().split(' ', 1)[0]
         rows = pieces.split('/')
-        torch_board = torch.zeros((6, 8, 8))
+        torch_board = torch.zeros((12, 8, 8))
         for i, row in enumerate(rows):
             j = 0
             for item in row:
                 if item.isdigit():
                     j += int(item)
                 else:
-                    if item.isupper():
-                        torch_board[self.pieces_map[item.lower()]][i][j] = 1
-                    else:
-                        torch_board[self.pieces_map[item]][i][j] = -1
+                    piece = self.pieces_map[item.lower()]
+                    if item.islower():
+                        piece += 6
+                    torch_board[piece][i][j] = 1
                     j += 1
-        if play_as_white:
-            torch_board = -torch_board
-            torch_board = torch.flip(torch_board, (-1, 1))
-
         return torch_board
 
-    def step(self, move, play_as_white):
+    def step(self, move):
         self.board.push_san(move)
         reward, done = self.game_over()
-        return self.encode_board(play_as_white), reward, done
+        return self.encode_board(), reward, done
 
     def reset(self):
         self.board = chess.Board()
         self.current_move = 0
-        return self.encode_board(True)
+        return self.encode_board()
 
     def get_legal_moves(self):
         return [self.board.san(move) for move in self.board.legal_moves]
@@ -58,7 +54,7 @@ class Chess:
         if outcome is None and self.current_move < self.max_moves:
             return 0, False
         elif outcome is None and self.current_move >= self.max_moves:
-            return 0, True
+            return -.5, True
         elif outcome.termination == chess.Termination.CHECKMATE:
             return 1, True
         else:
@@ -66,4 +62,6 @@ class Chess:
 
 
 if __name__ == '__main__':
-    pass
+    env = Chess()
+    state, _,_ = env.step('e4')
+    print(state[11])
