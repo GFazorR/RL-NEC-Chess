@@ -64,7 +64,6 @@ def test_model(env_name, env, n_steps=5, n_experiments=5,
                 n_episodes=100):
     fig = plt.figure(figsize=(15,15))
     fig.suptitle(f'Learning curve for {env_name} with n steps {n_steps}')
-    experiments_rewards = []
     experiments_rewards = np.zeros(shape=(n_experiments, int(n_episodes)))
     print(f'Start experiments with n_steps: {n_steps}')
 
@@ -72,7 +71,7 @@ def test_model(env_name, env, n_steps=5, n_experiments=5,
         # Initialize Network
 
         q_network = QNetwork()
-        replay_buffer = ReplayBuffer(10000)
+        replay_buffer = ReplayBuffer(50000)
         optimizer = Adam
 
         agent = NeuralEpisodicControl(
@@ -81,7 +80,6 @@ def test_model(env_name, env, n_steps=5, n_experiments=5,
             replay_buffer,
             optimizer,
             n_steps=n_steps,
-            eps_decay=int(n_episodes/5)
         )
 
         rewards = agent.train(n_episodes)
@@ -113,9 +111,9 @@ def test_model(env_name, env, n_steps=5, n_experiments=5,
 if __name__ == '__main__':
     test_model(
         env_name='Chess',
-        env=Chess(),
-        n_steps=3,
-        n_episodes=100,
-        n_experiments=1
+        env=Chess(50),
+        n_steps=5,
+        n_episodes=250,
+        n_experiments=3
     )
 
