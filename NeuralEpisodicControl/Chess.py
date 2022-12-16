@@ -38,6 +38,7 @@ class Chess:
     def step(self, move):
         self.board.push_san(move)
         reward, done = self.game_over()
+        self.current_move += 1
         return self.encode_board(), reward, done
 
     def reset(self):
@@ -50,18 +51,18 @@ class Chess:
 
     def game_over(self):
         outcome = self.board.outcome(claim_draw=True)
-        self.current_move += 1
         if outcome is None and self.current_move < self.max_moves:
             return 0, False
         elif outcome is None and self.current_move >= self.max_moves:
-            return -.5, True
+            return 0, True
         elif outcome.termination == chess.Termination.CHECKMATE:
             return 1, True
         else:
             return 0, True
-
+    def get_epd(self):
+        return self.board.epd()
 
 if __name__ == '__main__':
     env = Chess()
     state, _,_ = env.step('e4')
-    print(state[11])
+    print(state[5])
